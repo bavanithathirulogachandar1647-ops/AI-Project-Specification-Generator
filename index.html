@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Project Spec Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue-deep: #0f2942;
+    --blue-mid: #17436b;
+    --blue-line: #3d6d9a;
+    --paper: #eef4f8;
+    --ink: #eaf2f8;
+    --accent: #ff8a3d;
+    --grid-line: rgba(255,255,255,0.07);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+  body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--blue-deep);
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    padding: clamp(20px, 4vw, 56px);
+    display: flex;
+    justify-content: center;
+  }
+  .sheet {
+    width: 100%;
+    max-width: 960px;
+  }
+  .title-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 2px solid var(--blue-line);
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.5rem, 4vw, 2.1rem);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  h1 span { color: var(--accent); }
+  .rev {
+    font-size: 0.75rem;
+    color: var(--blue-line);
+    text-align: right;
+    line-height: 1.5;
+  }
+  .panel {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--blue-line);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 560px) {
+    .field-row { grid-template-columns: 1fr; }
+  }
+  label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--blue-line);
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+  select {
+    width: 100%;
+    background: var(--blue-deep);
+    border: 1px solid var(--blue-line);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 11px 12px;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--blue-line) 50%), linear-gradient(135deg, var(--blue-line) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+  select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .generate-btn {
+    margin-top: 20px;
+    width: 100%;
+    background: var(--accent);
+    color: #24140a;
+    border: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 14px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: filter 0.15s ease;
+  }
+  .generate-btn:hover { filter: brightness(1.08); }
+  .generate-btn:active { filter: brightness(0.95); }
+
+  #output { display: none; }
+  .spec-card {
+    border: 1px solid var(--blue-line);
+    position: relative;
+    padding: 28px;
+    background: rgba(255,255,255,0.025);
+  }
+  .spec-card::before, .spec-card::after,
+  .spec-card .corner-br, .spec-card .corner-bl {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    border: 2px solid var(--accent);
+  }
+  .spec-card::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+  .spec-card::after { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+  .corner-bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+  .corner-br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+  .tag-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tag {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    border: 1px solid var(--blue-line);
+    color: var(--blue-line);
+  }
+  .tag.diff { border-color: var(--accent); color: var(--accent); }
+
+  .spec-card h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.4rem;
+    margin: 0 0 10px;
+    color: var(--ink);
+  }
+  .spec-card p.desc {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #cfe0ee;
+    margin: 0 0 22px;
+  }
+  .section-label {
+    font-size: 0.72rem;
+    color: var(--blue-line);
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--blue-line);
+    padding-bottom: 6px;
+  }
+  .stack-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; }
+  .stack-item {
+    font-size: 0.8rem;
+    padding: 5px 10px;
+    background: var(--blue-mid);
+    color: var(--ink);
+  }
+  ul.features {
+    margin: 0 0 22px;
+    padding-left: 0;
+    list-style: none;
+  }
+  ul.features li {
+    padding-left: 20px;
+    position: relative;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: #d8e6f1;
+  }
+  ul.features li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+  .meta-row {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    padding-top: 14px;
+    border-top: 1px solid var(--blue-line);
+  }
+  .meta-item .k { font-size: 0.68rem; color: var(--blue-line); }
+  .meta-item .v { font-size: 0.9rem; color: var(--ink); margin-top: 2px; }
+
+  .empty-note {
+    font-size: 0.85rem;
+    color: var(--blue-line);
+    text-align: center;
+    padding: 30px 10px;
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="title-block">
+    <h1>PROJECT <span>SPEC</span> GENERATOR</h1>
+    <div class="rev">DRAWN FOR: CS COURSEWORK<br>REV: 1.0</div>
+  </div>
+
+  <div class="panel">
+    <div class="field-row">
+      <div>
+        <label for="domain">DOMAIN</label>
+        <select id="domain">
+          <option value="ai">Artificial Intelligence &amp; ML</option>
+          <option value="web">Web Development</option>
+          <option value="security">Cybersecurity</option>
+          <option value="data">Data Science &amp; Analytics</option>
+          <option value="mobile">Mobile App Development</option>
+          <option value="iot">Internet of Things (IoT)</option>
+          <option value="blockchain">Blockchain</option>
+          <option value="cloud">Cloud Computing</option>
+          <option value="game">Game Development</option>
+          <option value="network">Computer Networks</option>
+          <option value="database">Database Systems</option>
+          <option value="ar">AR / VR</option>
+        </select>
+      </div>
+      <div>
+        <label for="difficulty">DIFFICULTY</label>
+        <select id="difficulty">
+          <option value="any">Any</option>
+          <option value="Beginner">Beginner</option>
+          <option value="Intermediate">Intermediate</option>
+          <option value="Advanced">Advanced</option>
+        </select>
+      </div>
+    </div>
+    <button class="generate-btn" id="genBtn">GENERATE PROJECT</button>
+  </div>
+
+  <div id="output"></div>
+  <div id="emptyNote" class="empty-note">Select a domain above and generate a project spec.</div>
+</div>
+
+<script>
+const DB = {
+  ai: [
+    {title:"Handwritten Digit Recognizer", desc:"A neural network that classifies handwritten digits from scanned or drawn input, with a live canvas for testing.", stack:["Python","TensorFlow/Keras","NumPy","Flask"], features:["Train on the MNIST dataset","Draw-and-predict web canvas","Confusion matrix visualization","Model accuracy dashboard"], diff:"Beginner", weeks:"2-3"},
+    {title:"Resume Screening Classifier", desc:"An NLP pipeline that scores resumes against a job description and ranks candidates automatically.", stack:["Python","spaCy","scikit-learn","Streamlit"], features:["Keyword and skill extraction","TF-IDF or embedding-based matching","Ranked candidate output","Explainable score breakdown"], diff:"Intermediate", weeks:"4-5"},
+    {title:"Real-Time Sign Language Translator", desc:"A computer-vision system that captures hand gestures via webcam and translates them into text in real time.", stack:["Python","OpenCV","MediaPipe","PyTorch"], features:["Live webcam gesture capture","Custom gesture dataset training","Text-to-speech output","Gesture confidence overlay"], diff:"Advanced", weeks:"6-8"},
+    {title:"Movie Recommendation Engine", desc:"A collaborative-filtering system that suggests movies based on user rating history.", stack:["Python","Pandas","Surprise/scikit-learn","React"], features:["User-based and item-based filtering","Cold-start handling for new users","Rating prediction API","Interactive recommendation UI"], diff:"Intermediate", weeks:"3-4"}
+  ],
+  web: [
+    {title:"Collaborative Markdown Editor", desc:"A real-time document editor where multiple users can write and see changes simultaneously.", stack:["React","Node.js","Socket.IO","MongoDB"], features:["Live multi-cursor editing","Markdown live preview","Version history","Shareable document links"], diff:"Intermediate", weeks:"4-5"},
+    {title:"Personal Finance Tracker", desc:"A web app for logging expenses, visualizing spending patterns, and setting monthly budgets.", stack:["Vue.js","Express","PostgreSQL","Chart.js"], features:["Category-based expense logging","Monthly budget alerts","Spending trend charts","CSV import/export"], diff:"Beginner", weeks:"2-3"},
+    {title:"Job Board with Application Tracking", desc:"A full-stack platform where employers post jobs and applicants track their application status.", stack:["Next.js","Node.js","PostgreSQL","JWT Auth"], features:["Role-based dashboards","Application status pipeline","Search and filter by skill/location","Email notifications on status change"], diff:"Advanced", weeks:"6-7"},
+    {title:"Recipe Sharing Community Site", desc:"A social platform for uploading, rating, and searching community-submitted recipes.", stack:["React","Firebase","Tailwind CSS"], features:["Recipe upload with images","Star ratings and comments","Ingredient-based search","User profiles and saved recipes"], diff:"Beginner", weeks:"3"}
+  ],
+  security: [
+    {title:"Network Intrusion Detection System", desc:"A monitoring tool that analyzes network traffic patterns to flag suspicious or malicious activity.", stack:["Python","Scapy","scikit-learn","Wireshark"], features:["Live packet capture and parsing","Anomaly detection model","Alert dashboard","Traffic pattern logging"], diff:"Advanced", weeks:"6-8"},
+    {title:"Password Strength & Breach Checker", desc:"A tool that evaluates password strength and checks it against known breached-password datasets.", stack:["Python","Flask","hashlib","HaveIBeenPwned API"], features:["Entropy-based strength scoring","k-anonymity breach lookup","Password generation suggestions","Strength visualization meter"], diff:"Beginner", weeks:"2"},
+    {title:"Phishing URL Detector", desc:"A classifier that inspects URLs and page features to flag likely phishing sites in real time.", stack:["Python","scikit-learn","Flask","Chrome Extension APIs"], features:["URL feature extraction (length, domain age, symbols)","Trained classification model","Browser extension warning popup","Detection accuracy logs"], diff:"Intermediate", weeks:"4-5"},
+    {title:"File Integrity Monitoring Tool", desc:"A utility that watches a directory tree and alerts when files are modified, added, or deleted unexpectedly.", stack:["Python","Watchdog","SHA-256 hashing","SQLite"], features:["Baseline hash snapshot","Real-time change detection","Alert log with timestamps","Restore-to-baseline option"], diff:"Beginner", weeks:"2-3"}
+  ],
+  data: [
+    {title:"COVID/Health Trends Dashboard", desc:"An interactive dashboard that visualizes public health datasets across regions and time.", stack:["Python","Pandas","Plotly Dash","PostgreSQL"], features:["Time-series trend charts","Region comparison filters","Downloadable report export","Automated daily data refresh"], diff:"Beginner", weeks:"2-3"},
+    {title:"Customer Churn Prediction Model", desc:"A model that predicts which subscribers are likely to cancel, using historical usage data.", stack:["Python","scikit-learn","XGBoost","Jupyter"], features:["Feature engineering from usage logs","Churn probability scoring","Feature importance visualization","Retention recommendation report"], diff:"Intermediate", weeks:"4"},
+    {title:"Sentiment Analysis of Social Media Trends", desc:"A pipeline that scrapes public posts on a topic and tracks sentiment shifts over time.", stack:["Python","Tweepy/PRAW","NLTK","Matplotlib"], features:["Automated post collection","Sentiment scoring pipeline","Trend-over-time visualization","Keyword/topic clustering"], diff:"Intermediate", weeks:"3-4"},
+    {title:"Real Estate Price Predictor", desc:"A regression model that estimates housing prices based on location, size, and amenities.", stack:["Python","scikit-learn","Pandas","Streamlit"], features:["Multi-feature regression model","Interactive price estimator UI","Model performance metrics","Geographic price heatmap"], diff:"Beginner", weeks:"2-3"}
+  ],
+  mobile: [
+    {title:"Habit Tracker with Streaks", desc:"A mobile app for building daily habits with streak tracking and gentle reminders.", stack:["Flutter","Firebase","SQLite (local cache)"], features:["Daily check-in streaks","Push notification reminders","Progress calendar view","Habit statistics screen"], diff:"Beginner", weeks:"2-3"},
+    {title:"Campus Navigation App", desc:"An indoor/outdoor wayfinding app that helps students find classrooms, offices, and events on campus.", stack:["React Native","Google Maps SDK","Node.js backend"], features:["Route search between buildings","Class schedule integration","Event pins and reminders","Offline map caching"], diff:"Intermediate", weeks:"4-5"},
+    {title:"Split-Expense Group App", desc:"An app for groups to log shared expenses and automatically calculate who owes whom.", stack:["Flutter","Firebase","Cloud Functions"], features:["Group expense logging","Automatic debt simplification algorithm","Payment history log","Push notifications for settlements"], diff:"Intermediate", weeks:"4"},
+    {title:"AR Furniture Placement App", desc:"An app that lets users preview furniture in their room using augmented reality before buying.", stack:["Swift/ARKit or Flutter+ARCore","3D model assets"], features:["AR plane detection and placement","3D model scaling and rotation","Room screenshot and share","Product catalog browsing"], diff:"Advanced", weeks:"6-7"}
+  ],
+  iot: [
+    {title:"Smart Home Energy Monitor", desc:"A sensor network that tracks household appliance power usage and reports it to a dashboard.", stack:["Arduino/ESP32","MQTT","Node-RED","InfluxDB"], features:["Per-outlet current sensing","Real-time MQTT data streaming","Usage dashboard with alerts","Historical consumption charts"], diff:"Intermediate", weeks:"4-5"},
+    {title:"Automated Plant Watering System", desc:"A soil-moisture-driven system that waters plants automatically and logs environmental data.", stack:["Arduino","Soil moisture sensor","Relay + pump","Blynk/ThingSpeak"], features:["Moisture-threshold triggered watering","Remote monitoring app","Watering history log","Manual override control"], diff:"Beginner", weeks:"2-3"},
+    {title:"IoT-Based Air Quality Monitor", desc:"A distributed sensor system that measures air quality across multiple rooms or locations.", stack:["ESP32","MQ sensors","MQTT broker","Grafana"], features:["Multi-sensor data aggregation","Real-time air quality index calculation","Threshold-based alerts","Historical trend dashboard"], diff:"Intermediate", weeks:"4"},
+    {title:"Smart Parking Space Detector", desc:"A sensor-based system that detects open parking spots and displays availability on a map.", stack:["Ultrasonic sensors","Raspberry Pi","MQTT","Web dashboard"], features:["Per-spot occupancy sensing","Live availability map","Historical occupancy analytics","Alert on full-lot status"], diff:"Advanced", weeks:"5-6"}
+  ],
+  blockchain: [
+    {title:"Decentralized Voting System", desc:"A smart-contract-based voting platform that ensures transparent, tamper-proof election results.", stack:["Solidity","Ethereum/Hardhat","Web3.js","React"], features:["Voter identity verification","Immutable vote recording","Live tally dashboard","Smart contract audit tests"], diff:"Advanced", weeks:"6-7"},
+    {title:"Supply Chain Tracking Ledger", desc:"A blockchain ledger that tracks a product's journey from manufacturer to consumer.", stack:["Solidity","Hardhat","IPFS","React"], features:["Stage-by-stage product logging","QR-code product lookup","Immutable history trail","Role-based update permissions"], diff:"Intermediate", weeks:"5"},
+    {title:"NFT-Based Certificate Issuer", desc:"A platform for issuing tamper-proof academic or event certificates as NFTs.", stack:["Solidity","OpenZeppelin","Web3.js","IPFS"], features:["Certificate minting workflow","Wallet-based ownership verification","Public certificate lookup page","Batch issuance for cohorts"], diff:"Intermediate", weeks:"4-5"},
+    {title:"Simple Cryptocurrency Wallet", desc:"A basic wallet application for sending, receiving, and viewing balances on a testnet.", stack:["JavaScript","Web3.js","Ethereum testnet"], features:["Wallet creation and import","Send/receive transactions","Transaction history view","QR code address sharing"], diff:"Beginner", weeks:"3"}
+  ],
+  cloud: [
+    {title:"Serverless Image Processing Pipeline", desc:"An event-driven pipeline that automatically resizes and optimizes images uploaded to storage.", stack:["AWS Lambda","S3","API Gateway","Python"], features:["Auto-trigger on upload","Multi-size thumbnail generation","Metadata tagging","Cost and usage monitoring"], diff:"Intermediate", weeks:"3-4"},
+    {title:"Multi-Tenant SaaS Boilerplate", desc:"A starter cloud architecture for a subscription SaaS product with isolated tenant data.", stack:["AWS/GCP","Terraform","PostgreSQL","Docker"], features:["Tenant-isolated database schema","Infrastructure as code setup","Auto-scaling configuration","Billing/subscription integration"], diff:"Advanced", weeks:"6-8"},
+    {title:"Container Orchestration Dashboard", desc:"A monitoring dashboard for tracking the health and resource usage of containerized services.", stack:["Kubernetes","Prometheus","Grafana","Docker"], features:["Pod health and resource metrics","Auto-scaling visualization","Alert rules configuration","Deployment history log"], diff:"Advanced", weeks:"5-6"},
+    {title:"Cloud-Based File Backup Service", desc:"A tool that automatically syncs and versions local files to cloud storage.", stack:["Python","AWS S3","Cron","boto3"], features:["Scheduled incremental backups","File versioning","Restore-to-date functionality","Backup status dashboard"], diff:"Beginner", weeks:"2-3"}
+  ],
+  game: [
+    {title:"2D Physics-Based Puzzle Game", desc:"A puzzle game where players manipulate objects using simulated physics to reach a goal.", stack:["Unity","C#","Box2D physics"], features:["Physics-based object interaction","Level progression system","In-game level editor","Star-rating scoring system"], diff:"Intermediate", weeks:"4-5"},
+    {title:"Procedurally Generated Dungeon Crawler", desc:"A roguelike game where each playthrough generates a new dungeon layout and enemy set.", stack:["Godot/Unity","C#/GDScript"], features:["Procedural room and corridor generation","Randomized enemy and loot spawning","Permadeath progression system","Minimap generation"], diff:"Advanced", weeks:"6-8"},
+    {title:"Multiplayer Trivia Quiz Game", desc:"A real-time multiplayer quiz game playable across devices in the same room or online.", stack:["Node.js","Socket.IO","React","Redis"], features:["Real-time synchronized questions","Live leaderboard","Custom question set upload","Room-code based joining"], diff:"Intermediate", weeks:"4"},
+    {title:"Endless Runner Mobile Game", desc:"A simple mobile game where the player dodges obstacles in an endlessly scrolling world.", stack:["Unity","C#"], features:["Procedural obstacle spawning","Increasing difficulty curve","Local high score storage","Simple power-up system"], diff:"Beginner", weeks:"2-3"}
+  ],
+  network: [
+    {title:"Custom Chat Protocol over TCP", desc:"A chat application built on a hand-designed protocol over raw TCP sockets, without a web framework.", stack:["Python/C","Sockets","Custom protocol design"], features:["Custom message framing protocol","Multi-client server handling","Encrypted message transport","Connection/disconnection handling"], diff:"Intermediate", weeks:"3-4"},
+    {title:"Network Traffic Analyzer", desc:"A tool that captures and visualizes network packets to reveal bandwidth usage by application.", stack:["Python","Scapy","Matplotlib"], features:["Live packet capture","Per-protocol bandwidth breakdown","Top-talkers visualization","Exportable traffic reports"], diff:"Intermediate", weeks:"3"},
+    {title:"Simple DNS Resolver", desc:"A from-scratch DNS resolver that performs iterative lookups without relying on system resolvers.", stack:["Python","raw UDP sockets"], features:["Iterative root-to-authoritative resolution","Response caching","Query logging","Support for A/AAAA/MX records"], diff:"Advanced", weeks:"4-5"},
+    {title:"Peer-to-Peer File Sharing Tool", desc:"A decentralized file-sharing application where peers discover and exchange file chunks directly.", stack:["Python","Sockets","Hashing (SHA-256)"], features:["Peer discovery mechanism","Chunked file transfer","Integrity verification via hashing","Download progress tracking"], diff:"Advanced", weeks:"5-6"}
+  ],
+  database: [
+    {title:"Library Management System", desc:"A database-driven system for tracking book inventory, checkouts, and due dates.", stack:["MySQL/PostgreSQL","Node.js/Django","SQL"], features:["Book and member catalog","Checkout/return workflow","Overdue fine calculation","Search and reporting queries"], diff:"Beginner", weeks:"2-3"},
+    {title:"Hospital Appointment Scheduling DB", desc:"A relational database system for managing patient appointments, doctors, and schedules.", stack:["PostgreSQL","Django/Express","SQL"], features:["Conflict-free scheduling logic","Doctor availability management","Patient history lookup","Automated reminder queue"], diff:"Intermediate", weeks:"4"},
+    {title:"Query Performance Optimizer Study", desc:"A project analyzing and improving the performance of slow SQL queries on a large dataset.", stack:["PostgreSQL/MySQL","EXPLAIN ANALYZE","Indexing strategies"], features:["Baseline query benchmarking","Index design and testing","Query rewriting comparisons","Before/after performance report"], diff:"Advanced", weeks:"3-4"},
+    {title:"NoSQL vs SQL Benchmark Tool", desc:"A comparative study benchmarking read/write performance between a relational and document database.", stack:["PostgreSQL","MongoDB","Python benchmarking scripts"], features:["Identical dataset across both databases","Read/write/query benchmark suite","Scalability test under load","Comparative results dashboard"], diff:"Intermediate", weeks:"3-4"}
+  ],
+  ar: [
+    {title:"AR Anatomy Learning App", desc:"An educational AR app that overlays 3D anatomical models for interactive learning.", stack:["Unity","ARFoundation","3D anatomy models"], features:["Marker or markerless AR model overlay","Layer-by-layer anatomy exploration","Quiz mode on structures","Model rotation and zoom controls"], diff:"Advanced", weeks:"6-7"},
+    {title:"VR Campus Tour Experience", desc:"A virtual reality walkthrough that lets prospective students explore a campus remotely.", stack:["Unity","VR SDK (Oculus/OpenXR)","3D environment assets"], features:["Teleport-based navigation","Interactive info hotspots","360-degree building views","Guided tour mode"], diff:"Intermediate", weeks:"5"},
+    {title:"AR Interior Design Preview Tool", desc:"An AR tool for visualizing wall colors and decor changes in a real room before committing.", stack:["ARKit/ARCore","Unity or native mobile"], features:["Wall surface detection","Live color/texture preview","Before/after screenshot capture","Save and share room designs"], diff:"Advanced", weeks:"6"},
+    {title:"VR Training Simulator (Safety Drill)", desc:"A VR simulation that trains users to respond correctly to a workplace safety scenario.", stack:["Unity","VR SDK","C#"], features:["Scenario-based decision branching","Performance scoring on choices","Replay and review mode","Multiple difficulty scenarios"], diff:"Intermediate", weeks:"5-6"}
+  ]
+};
+
+const domainLabels = {
+  ai:"Artificial Intelligence & ML", web:"Web Development", security:"Cybersecurity",
+  data:"Data Science & Analytics", mobile:"Mobile App Development", iot:"Internet of Things (IoT)",
+  blockchain:"Blockchain", cloud:"Cloud Computing", game:"Game Development",
+  network:"Computer Networks", database:"Database Systems", ar:"AR / VR"
+};
+
+const output = document.getElementById('output');
+const emptyNote = document.getElementById('emptyNote');
+let lastIndex = -1;
+
+document.getElementById('genBtn').addEventListener('click', () => {
+  const domain = document.getElementById('domain').value;
+  const difficulty = document.getElementById('difficulty').value;
+  const pool = DB[domain].filter(p => difficulty === 'any' || p.diff === difficulty);
+  const list = pool.length ? pool : DB[domain];
+
+  let idx = Math.floor(Math.random() * list.length);
+  if (list.length > 1) {
+    while (idx === lastIndex) idx = Math.floor(Math.random() * list.length);
+  }
+  lastIndex = idx;
+  const p = list[idx];
+
+  output.innerHTML = `
+    <div class="spec-card">
+      <div class="corner-bl"></div><div class="corner-br"></div>
+      <div class="tag-row">
+        <span class="tag">${domainLabels[domain]}</span>
+        <span class="tag diff">${p.diff}</span>
+      </div>
+      <h2>${p.title}</h2>
+      <p class="desc">${p.desc}</p>
+      <div class="section-label">TECH STACK</div>
+      <div class="stack-list">${p.stack.map(s => `<span class="stack-item">${s}</span>`).join('')}</div>
+      <div class="section-label">CORE FEATURES</div>
+      <ul class="features">${p.features.map(f => `<li>${f}</li>`).join('')}</ul>
+      <div class="meta-row">
+        <div class="meta-item"><div class="k">EST. DURATION</div><div class="v">${p.weeks} weeks</div></div>
+        <div class="meta-item"><div class="k">DIFFICULTY</div><div class="v">${p.diff}</div></div>
+      </div>
+    </div>
+  `;
+  output.style.display = 'block';
+  emptyNote.style.display = 'none';
+});
+</script>
+</body>
+</html>
